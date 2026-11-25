@@ -1,0 +1,1 @@
+import{p as e}from"./preload-helper-B5r0rjDq.js";import{t}from"./routes-B5QNiKGp.js";import{n,r,t as i}from"./WishScene-BKanpWmH.js";var a=e();function o(){let{w:e}=t.useSearch(),o=n(e)??r;return(0,a.jsx)(i,{wish:o})}export{o as component};

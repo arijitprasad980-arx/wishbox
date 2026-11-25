@@ -1,0 +1,7 @@
+{
+  "name": "wishbox-local",
+  "private": true,
+  "scripts": {
+    "start": "python serve.py"
+  }
+}

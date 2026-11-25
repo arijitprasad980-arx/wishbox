@@ -1,0 +1,259 @@
+button.group.grid {
+  position: relative;
+  width: clamp(180px, 23vw, 224px) !important;
+  height: clamp(180px, 23vw, 224px) !important;
+  display: grid !important;
+  place-items: center;
+  border: 1px solid rgba(71, 51, 40, 0.1);
+  background: #fffaf2 !important;
+  color: #473328 !important;
+  box-shadow: 0 16px 38px rgba(71, 51, 40, 0.14);
+  transition: transform 280ms ease, box-shadow 280ms ease;
+}
+
+button.group.grid:hover {
+  box-shadow: 0 20px 44px rgba(71, 51, 40, 0.2);
+  transform: translateY(-3px) scale(1.025);
+}
+
+button.group.grid:focus-visible {
+  outline: 3px solid rgba(244, 111, 83, 0.6);
+  outline-offset: 4px;
+}
+
+button.group.grid > span {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0 !important;
+  font-size: 0 !important;
+  line-height: 0;
+}
+
+button.group.grid > span::before {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  display: block;
+  width: 180px;
+  height: 180px;
+  background: url("/assets/birthday-cake-lit.svg") center / contain no-repeat;
+  content: "";
+  transition: opacity 400ms ease;
+  transform: translateX(-50%);
+}
+
+button.group.grid > span::after {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  display: block;
+  width: 180px;
+  height: 180px;
+  background: url("/assets/birthday-cake.svg") center / contain no-repeat;
+  content: "";
+  opacity: 0;
+  transition: opacity 400ms ease;
+  transform: translateX(-50%);
+}
+
+button.group.grid[data-cake-lit="false"] > span::before {
+  opacity: 0;
+}
+
+button.group.grid[data-cake-lit="false"] > span::after {
+  opacity: 1;
+}
+
+button[aria-label="Blow out the cake candles"],
+button[aria-label="Cake candles blown out"] {
+  display: none !important;
+}
+
+.wishbox-element-layer {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wishbox-element {
+  position: absolute;
+  width: min(23vw, 112px);
+  padding: 8px;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  color: #473328;
+  cursor: pointer;
+  font: 12px/1.35 Fraunces, Georgia, serif;
+  pointer-events: auto;
+  text-align: left;
+  transform: rotate(var(--element-rotation));
+}
+
+.wishbox-element-photo {
+  display: block;
+  max-width: 100%;
+  max-height: 250px;
+  margin: 0 auto;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.wishbox-element span {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.wish-confetti-layer {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wish-confetti-piece {
+  position: absolute;
+  top: -12vh;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  font-size: 40px;
+  animation: wish-confetti-fall 3.2s ease-in forwards;
+}
+
+.wish-reveal-overlay {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(255, 250, 242, 0.76);
+}
+
+.wish-reveal-card {
+  position: relative;
+  width: min(100%, 440px);
+  padding: 44px 32px 28px;
+  border: 1px solid rgba(71, 51, 40, 0.08);
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(71, 51, 40, 0.16);
+  text-align: center;
+}
+
+.wish-reveal-badge {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  padding: 7px 14px;
+  border-radius: 99px;
+  background: #f46f53;
+  color: #fffaf2;
+  font: 600 10px/1 Inter, sans-serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.wish-reveal-to {
+  margin: 0;
+  color: #f46f53;
+  font: italic 19px/1.4 Fraunces, Georgia, serif;
+}
+
+.wish-reveal-headline {
+  margin: 12px 0 0;
+  color: #473328;
+  font: 600 32px/1.15 Fraunces, Georgia, serif;
+}
+
+.wish-reveal-note {
+  margin: 16px 0 0;
+  color: #6f6259;
+  font: 15px/1.65 Inter, sans-serif;
+}
+
+.wish-reveal-close {
+  margin-top: 24px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 99px;
+  background: #473328;
+  color: #fffaf2;
+  cursor: pointer;
+  font: 500 14px Inter, sans-serif;
+}
+
+@keyframes wish-confetti-fall {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+
+  to {
+    transform: translate3d(var(--confetti-drift), 125vh, 0) rotate(var(--confetti-spin));
+  }
+}
+
+@keyframes wish-balloon-bottom-to-top {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0) scale(0.7);
+  }
+
+  12%,
+  65% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--rain-drift, 0px), -125vh, 0) rotate(var(--rain-spin, 360deg)) scale(1);
+  }
+}
+
+.wish-balloon-item {
+  position: absolute;
+  top: auto !important;
+  bottom: -12% !important;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  font-size: 40px;
+  animation-name: wish-balloon-bottom-to-top !important;
+}
+
+@media (max-width: 640px) {
+  button.group.grid > span::before {
+    top: 14px;
+    width: 150px;
+    height: 152px;
+  }
+
+  button.group.grid > span::after {
+    top: 14px;
+    width: 150px;
+    height: 152px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.group.grid,
+  button.group.grid:hover {
+    transition: none;
+    transform: none;
+  }
+
+  .wish-confetti-piece {
+    animation-duration: 1ms;
+  }
+}
