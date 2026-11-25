@@ -38,7 +38,7 @@ button.group.grid > span::before {
   display: block;
   width: 180px;
   height: 180px;
-  background: url("/assets/birthday-cake-lit.svg") center / contain no-repeat;
+  background: url("./birthday-cake-lit.svg") center / contain no-repeat;
   content: "";
   transition: opacity 400ms ease;
   transform: translateX(-50%);
@@ -51,7 +51,7 @@ button.group.grid > span::after {
   display: block;
   width: 180px;
   height: 180px;
-  background: url("/assets/birthday-cake.svg") center / contain no-repeat;
+  background: url("./birthday-cake.svg") center / contain no-repeat;
   content: "";
   opacity: 0;
   transition: opacity 400ms ease;

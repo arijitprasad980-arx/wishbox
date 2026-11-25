@@ -5,13 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wishbox</title>
     <meta name="description" content="Build and share a birthday wish." />
-    <link rel="stylesheet" href="/assets/styles-BO52kEcd.css" />
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="./assets/styles-BO52kEcd.css" />
+    <link rel="stylesheet" href="./assets/cake-wish.css" />
+    <link rel="icon" href="./favicon.ico" type="image/x-icon" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/assets/index-iWzc-Qn0.js"></script>
+    <p>Loading Wishbox...</p>
+    <script type="module">
+      const response = await fetch("./home.html");
+      if (!response.ok) {
+        throw new Error(`Could not load the Wishbox page (${response.status}).`);
+      }
+
+      const template = new DOMParser().parseFromString(
+        await response.text(),
+        "text/html",
+      );
+      template.body.querySelectorAll("script").forEach((script) => script.remove());
+
+      for (const element of template.body.querySelectorAll(
+        '[src^="/assets/"], [href^="/assets/"]',
+      )) {
+        for (const attribute of ["src", "href"]) {
+          const value = element.getAttribute(attribute);
+          if (value?.startsWith("/assets/")) {
+            element.setAttribute(attribute, `.${value}`);
+          }
+        }
+      }
+
+      const editorLink = template.body.querySelector('a[href^="/edit"]');
+      if (editorLink) {
+        const { search } = new URL(editorLink.getAttribute("href"), location.origin);
+        editorLink.setAttribute("href", `./edit${search}`);
+      }
+
+      document.body.replaceChildren(
+        ...Array.from(template.body.childNodes, (node) =>
+          document.importNode(node, true),
+        ),
+      );
+      await import("./assets/cake-wish.js");
+    </script>
   </body>
 </html>

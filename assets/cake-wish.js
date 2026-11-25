@@ -170,9 +170,11 @@ function applyWishEdits() {
     }
   }
 
-  const editorLink = page?.querySelector('a[href^="/edit?w="]');
+  const editorLink = page?.querySelector('a[href*="edit?w="]');
   if (editorLink && new URLSearchParams(location.search).has("w")) {
-    editorLink.href = `/edit?w=${encodeWish(wish)}`;
+    const editorUrl = new URL("./edit", location.href);
+    editorUrl.searchParams.set("w", encodeWish(wish));
+    editorLink.href = `${editorUrl.pathname}${editorUrl.search}`;
   }
 
   if (Array.isArray(wish.elements) && wish.elements.length) {
@@ -220,7 +222,7 @@ function applyWishEdits() {
 let cakeLit = true;
 let revealTimer;
 const installedWishButtons = new WeakSet();
-const isEditor = location.pathname === "/edit";
+const isEditor = /\/edit\/?$/.test(location.pathname);
 
 function handleCakeClick(wishButton) {
   cakeLit = !cakeLit;
