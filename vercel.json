@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/edit",
+      "destination": "/edit.html"
+    }
+  ]
+}
