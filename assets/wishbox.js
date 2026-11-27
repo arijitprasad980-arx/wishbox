@@ -317,7 +317,70 @@ function renderWish(container, wish, options = {}) {
     }
     const label = item.caption || item.text || item.from || "A little memory";
     card.append(element("span", "memory-label", label));
-    card.addEventListener("click", () => showElement(item));
+    if (options.preview) {
+      card.setAttribute("aria-label", `${label}. Drag to reposition or click to preview.`);
+      let pointerId = null;
+      let startX = 0;
+      let startY = 0;
+      let startLeft = 0;
+      let startTop = 0;
+      let dragged = false;
+      let suppressClick = false;
+
+      card.addEventListener("pointerdown", (event) => {
+        if (event.isPrimary === false || (event.pointerType === "mouse" && event.button !== 0)) return;
+        pointerId = event.pointerId;
+        startX = event.clientX;
+        startY = event.clientY;
+        startLeft = item.x;
+        startTop = item.y;
+        dragged = false;
+        suppressClick = false;
+        card.setPointerCapture(pointerId);
+      });
+      card.addEventListener("pointermove", (event) => {
+        if (event.pointerId !== pointerId) return;
+        const deltaX = event.clientX - startX;
+        const deltaY = event.clientY - startY;
+        if (!dragged && Math.hypot(deltaX, deltaY) < 4) return;
+        dragged = true;
+        event.preventDefault();
+
+        const stageBounds = stage.getBoundingClientRect();
+        if (!stageBounds.width || !stageBounds.height) return;
+        const cardBounds = card.getBoundingClientRect();
+        const maxX = Math.max(5, Math.min(85, ((stageBounds.width - cardBounds.width) / stageBounds.width) * 100));
+        const maxY = Math.max(10, Math.min(78, ((stageBounds.height - cardBounds.height) / stageBounds.height) * 100));
+        item.x = Math.round(Math.max(5, Math.min(maxX, startLeft + (deltaX / stageBounds.width) * 100)));
+        item.y = Math.round(Math.max(10, Math.min(maxY, startTop + (deltaY / stageBounds.height) * 100)));
+        card.style.left = `${item.x}%`;
+        card.style.top = `${item.y}%`;
+        options.onElementDrag?.(item);
+      });
+
+      const finishDrag = (event, cancelled = false) => {
+        if (event.pointerId !== pointerId) return;
+        if (card.hasPointerCapture(pointerId)) card.releasePointerCapture(pointerId);
+        pointerId = null;
+        if (!dragged) return;
+        if (!cancelled) suppressClick = true;
+        options.onElementDragEnd?.(item);
+        dragged = false;
+      };
+      card.addEventListener("pointerup", finishDrag);
+      card.addEventListener("pointercancel", (event) => finishDrag(event, true));
+      card.addEventListener("click", (event) => {
+        if (suppressClick) {
+          event.preventDefault();
+          event.stopPropagation();
+          suppressClick = false;
+          return;
+        }
+        showElement(item);
+      });
+    } else {
+      card.addEventListener("click", () => showElement(item));
+    }
     stage.append(card);
   }
 
@@ -437,7 +500,7 @@ function renderEditor() {
           <p class="editor-footnote">Anyone with your link can open the wish and remix their own version.</p>
         </aside>
         <section class="preview-column" aria-label="Live preview">
-          <div class="preview-heading"><div><p class="eyebrow">Live preview</p><h2>Your page, as they will see it</h2></div><a class="text-link" data-view-link href="${siteBase().href}">Open page ↗</a></div>
+          <div class="preview-heading"><div><p class="eyebrow">Live preview</p><h2>Your page, as they will see it</h2><p class="drag-help">Drag photos, names, and notes to position them.</p></div><a class="text-link" data-view-link href="${siteBase().href}">Open page ↗</a></div>
           <div class="preview-frame" data-preview></div>
         </section>
       </div>
@@ -471,10 +534,35 @@ function renderEditor() {
     }
   }
 
+  function updatePositionControl(item, field) {
+    const input = [...elementList.querySelectorAll('input[type="range"]')].find(
+      (fieldNode) => fieldNode.dataset.id === item.id && fieldNode.dataset.elementField === field,
+    );
+    if (!input) return;
+    input.value = String(item[field]);
+    const caption = input.parentElement.querySelector("span");
+    if (caption) {
+      const label = field === "x" ? "Horizontal position" : "Vertical position";
+      caption.textContent = `${label} · ${input.value}`;
+    }
+  }
+
+  function updateWishLinks() {
+    const href = wishUrl(wish);
+    app.querySelector("[data-view-link]").href = href;
+    app.querySelector("[data-current-wish]").href = href;
+  }
+
   function sync() {
-    renderWish(preview, wish, { preview: true });
-    app.querySelector("[data-view-link]").href = wishUrl(wish);
-    app.querySelector("[data-current-wish]").href = wishUrl(wish);
+    renderWish(preview, wish, {
+      preview: true,
+      onElementDrag(item) {
+        updatePositionControl(item, "x");
+        updatePositionControl(item, "y");
+      },
+      onElementDragEnd: updateWishLinks,
+    });
+    updateWishLinks();
   }
 
   function updateConditionalField(event) {

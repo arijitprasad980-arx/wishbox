@@ -472,6 +472,12 @@ select:focus-visible {
   font-size: clamp(19px, 2.2vw, 26px);
 }
 
+.drag-help {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .preview-frame {
   max-width: 1040px;
   margin: 0 auto;
@@ -655,6 +661,19 @@ select:focus-visible {
   z-index: 4;
   box-shadow: 0 12px 28px rgba(71, 51, 40, .19);
   transform: rotate(0) scale(1.06);
+}
+
+.wish-scene-preview .floating-memory {
+  z-index: 3;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wish-scene-preview .floating-memory:active {
+  z-index: 5;
+  cursor: grabbing;
 }
 
 .tone-white {
