@@ -198,10 +198,10 @@ function makeConfettiRain() {
   const layer = element("div", "rain-layer confetti-layer");
   layer.setAttribute("aria-hidden", "true");
   const colors = ["#f46f53", "#ffb24d", "#8db7d2", "#98aa74", "#d78eaa", "#f7d96b"];
-  for (let index = 0; index < 64; index += 1) {
+  for (let index = 0; index < 120; index += 1) {
     const piece = element("span", "confetti-piece");
     piece.style.left = `${(index * 53 + 7) % 100}%`;
-    piece.style.animationDelay = `${(index % 8) * 14}ms`;
+    piece.style.animationDelay = `${(index % 12) * 28}ms`;
     piece.style.setProperty("--drift", `${((index * 13) % 121) - 60}px`);
     piece.style.setProperty("--spin", `${360 + (index % 5) * 180}deg`);
     piece.style.backgroundColor = colors[index % colors.length];
@@ -209,7 +209,7 @@ function makeConfettiRain() {
     layer.append(piece);
   }
   document.body.append(layer);
-  window.setTimeout(() => layer.remove(), 1300);
+  window.setTimeout(() => layer.remove(), 2400);
 }
 
 function makeItRain(wish) {

@@ -865,7 +865,7 @@ select:focus-visible {
   width: 8px;
   height: 13px;
   border-radius: 2px;
-  animation: confetti-fall .88s cubic-bezier(.15, .55, .3, 1) both;
+  animation: confetti-fall 1.8s cubic-bezier(.15, .55, .3, 1) both;
 }
 
 .confetti-circle {
