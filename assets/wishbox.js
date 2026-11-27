@@ -194,6 +194,24 @@ function showElement(item) {
   createModal("A little memory", nodes);
 }
 
+function makeConfettiRain() {
+  const layer = element("div", "rain-layer confetti-layer");
+  layer.setAttribute("aria-hidden", "true");
+  const colors = ["#f46f53", "#ffb24d", "#8db7d2", "#98aa74", "#d78eaa", "#f7d96b"];
+  for (let index = 0; index < 64; index += 1) {
+    const piece = element("span", "confetti-piece");
+    piece.style.left = `${(index * 53 + 7) % 100}%`;
+    piece.style.animationDelay = `${(index % 8) * 14}ms`;
+    piece.style.setProperty("--drift", `${((index * 13) % 121) - 60}px`);
+    piece.style.setProperty("--spin", `${360 + (index % 5) * 180}deg`);
+    piece.style.backgroundColor = colors[index % colors.length];
+    if (index % 3 === 0) piece.classList.add("confetti-circle");
+    layer.append(piece);
+  }
+  document.body.append(layer);
+  window.setTimeout(() => layer.remove(), 1300);
+}
+
 function makeItRain(wish) {
   const layer = element("div", "rain-layer");
   layer.setAttribute("aria-hidden", "true");
@@ -262,7 +280,28 @@ function renderWish(container, wish, options = {}) {
   const cakeImage = image(new URL("./birthday-cake-lit.svg", import.meta.url).href, "", "cake-art");
   if (cakeImage) cake.append(cakeImage);
   cake.append(element("span", "cake-caption", wish.buttonLabel || "Open your wish"));
-  cake.addEventListener("click", () => showWish(wish));
+  let candleBlownOut = false;
+  let revealPending = false;
+  cake.addEventListener("click", () => {
+    if (revealPending) return;
+    revealPending = true;
+    cake.disabled = true;
+    makeConfettiRain();
+    if (!candleBlownOut) {
+      cake.classList.add("candle-blowing");
+      window.setTimeout(() => {
+        if (cakeImage) cakeImage.src = new URL("./birthday-cake-blown.svg", import.meta.url).href;
+        cake.classList.remove("candle-blowing");
+        cake.classList.add("candle-blown");
+        candleBlownOut = true;
+      }, 320);
+    }
+    window.setTimeout(() => {
+      showWish(wish);
+      revealPending = false;
+      cake.disabled = false;
+    }, 1000);
+  });
   stage.append(cake);
 
   for (const [index, item] of wish.elements.entries()) {

@@ -589,6 +589,25 @@ select:focus-visible {
   transform: translate(-50%, -52%) scale(1.035);
 }
 
+.cake-button:disabled {
+  cursor: wait;
+}
+
+.cake-button.candle-blowing::before {
+  position: absolute;
+  top: 2%;
+  left: 30%;
+  z-index: 3;
+  content: "💨";
+  font-size: 26px;
+  animation: candle-puff .38s ease-out both;
+  pointer-events: none;
+}
+
+.cake-button.candle-blowing .cake-art {
+  animation: candle-blow .32s ease-in-out both;
+}
+
 .cake-art {
   width: min(100%, 185px);
   height: auto;
@@ -840,6 +859,21 @@ select:focus-visible {
   object-fit: contain;
 }
 
+.confetti-piece {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px;
+  animation: confetti-fall .88s cubic-bezier(.15, .55, .3, 1) both;
+}
+
+.confetti-circle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
 .copy-buffer {
   position: fixed;
   top: -1000px;
@@ -918,6 +952,47 @@ select:focus-visible {
   100% {
     opacity: 0;
     transform: translate3d(var(--drift), -115vh, 0) rotate(-300deg) scale(1.1);
+  }
+}
+
+@keyframes candle-puff {
+  0% {
+    opacity: 0;
+    transform: translate(-8px, 8px) scale(.6);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(52px, -5px) scale(1.15);
+  }
+}
+
+@keyframes candle-blow {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  35% {
+    transform: translateX(-3px) rotate(-1deg);
+  }
+  70% {
+    transform: translateX(3px) rotate(1deg);
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin));
   }
 }
 
