@@ -65,8 +65,8 @@ function normalizeWish(value) {
         tone: ["white", "butter", "sky", "sage", "coral"].includes(item?.tone)
           ? item.tone
           : "white",
-        x: clamp(Number(item?.x) || 50, 5, 85),
-        y: clamp(Number(item?.y) || 50, 10, 78),
+        x: clamp(Number(item?.x) || 50, 2, 95),
+        y: clamp(Number(item?.y) || 50, 2, 95),
         rot: clamp(Number(item?.rot) || 0, -12, 12),
       }))
     : [];
@@ -255,6 +255,16 @@ function backgroundStyle(wish, stage) {
   }
 }
 
+function memoryPositionBounds(scene, card) {
+  const sceneBounds = scene.getBoundingClientRect();
+  const cardBounds = card.getBoundingClientRect();
+  if (!sceneBounds.width || !sceneBounds.height) return { maxX: 95, maxY: 95 };
+  return {
+    maxX: Math.max(2, Math.min(95, ((sceneBounds.width - cardBounds.width) / sceneBounds.width) * 100)),
+    maxY: Math.max(2, Math.min(95, ((sceneBounds.height - cardBounds.height) / sceneBounds.height) * 100)),
+  };
+}
+
 function renderWish(container, wish, options = {}) {
   const scene = element("main", `wish-scene${options.preview ? " wish-scene-preview" : ""}`);
   backgroundStyle(wish, scene);
@@ -304,9 +314,11 @@ function renderWish(container, wish, options = {}) {
   });
   stage.append(cake);
 
+  const memoryCards = [];
   for (const [index, item] of wish.elements.entries()) {
     const card = element("button", `floating-memory tone-${item.tone}`);
     card.type = "button";
+    card.dataset.elementId = item.id;
     card.style.left = `${item.x}%`;
     card.style.top = `${item.y}%`;
     card.style.setProperty("--tilt", `${item.rot}deg`);
@@ -346,13 +358,11 @@ function renderWish(container, wish, options = {}) {
         dragged = true;
         event.preventDefault();
 
-        const stageBounds = stage.getBoundingClientRect();
-        if (!stageBounds.width || !stageBounds.height) return;
-        const cardBounds = card.getBoundingClientRect();
-        const maxX = Math.max(5, Math.min(85, ((stageBounds.width - cardBounds.width) / stageBounds.width) * 100));
-        const maxY = Math.max(10, Math.min(78, ((stageBounds.height - cardBounds.height) / stageBounds.height) * 100));
-        item.x = Math.round(Math.max(5, Math.min(maxX, startLeft + (deltaX / stageBounds.width) * 100)));
-        item.y = Math.round(Math.max(10, Math.min(maxY, startTop + (deltaY / stageBounds.height) * 100)));
+        const sceneBounds = scene.getBoundingClientRect();
+        if (!sceneBounds.width || !sceneBounds.height) return;
+        const limits = memoryPositionBounds(scene, card);
+        item.x = Math.round(Math.max(2, Math.min(limits.maxX, startLeft + (deltaX / sceneBounds.width) * 100)));
+        item.y = Math.round(Math.max(2, Math.min(limits.maxY, startTop + (deltaY / sceneBounds.height) * 100)));
         card.style.left = `${item.x}%`;
         card.style.top = `${item.y}%`;
         options.onElementDrag?.(item);
@@ -381,7 +391,7 @@ function renderWish(container, wish, options = {}) {
     } else {
       card.addEventListener("click", () => showElement(item));
     }
-    stage.append(card);
+    memoryCards.push(card);
   }
 
   const actions = element("nav", "scene-actions");
@@ -402,8 +412,16 @@ function renderWish(container, wish, options = {}) {
   remixLink.href = editorUrl(wish);
   actions.append(rainButton, copyButton, remixLink);
 
-  scene.append(glow, header, hero, stage, actions);
+  scene.append(glow, header, hero, stage, ...memoryCards, actions);
   container.replaceChildren(scene);
+  for (const [index, item] of wish.elements.entries()) {
+    const card = memoryCards[index];
+    const limits = memoryPositionBounds(scene, card);
+    item.x = Math.max(2, Math.min(Math.floor(limits.maxX), Math.round(item.x)));
+    item.y = Math.max(2, Math.min(Math.floor(limits.maxY), Math.round(item.y)));
+    card.style.left = `${item.x}%`;
+    card.style.top = `${item.y}%`;
+  }
 }
 
 function renderView(error = "") {
@@ -500,7 +518,7 @@ function renderEditor() {
           <p class="editor-footnote">Anyone with your link can open the wish and remix their own version.</p>
         </aside>
         <section class="preview-column" aria-label="Live preview">
-          <div class="preview-heading"><div><p class="eyebrow">Live preview</p><h2>Your page, as they will see it</h2><p class="drag-help">Drag photos, names, and notes to position them.</p></div><a class="text-link" data-view-link href="${siteBase().href}">Open page ↗</a></div>
+          <div class="preview-heading"><div><p class="eyebrow">Live preview</p><h2>Your page, as they will see it</h2><p class="drag-help">Drag photos, names, and notes anywhere on the page.</p></div><a class="text-link" data-view-link href="${siteBase().href}">Open page ↗</a></div>
           <div class="preview-frame" data-preview></div>
         </section>
       </div>
@@ -539,7 +557,17 @@ function renderEditor() {
       (fieldNode) => fieldNode.dataset.id === item.id && fieldNode.dataset.elementField === field,
     );
     if (!input) return;
+    const card = [...preview.querySelectorAll(".floating-memory")].find(
+      (cardNode) => cardNode.dataset.elementId === item.id,
+    );
+    const scene = preview.querySelector(".wish-scene");
+    const limits = card && scene ? memoryPositionBounds(scene, card) : { maxX: 95, maxY: 95 };
+    const max = Math.floor(field === "x" ? limits.maxX : limits.maxY);
+    item[field] = Math.max(2, Math.min(max, Math.round(item[field])));
+    input.min = "2";
+    input.max = String(max);
     input.value = String(item[field]);
+    if (card) card.style[field === "x" ? "left" : "top"] = `${item[field]}%`;
     const caption = input.parentElement.querySelector("span");
     if (caption) {
       const label = field === "x" ? "Horizontal position" : "Vertical position";
@@ -562,6 +590,10 @@ function renderEditor() {
       },
       onElementDragEnd: updateWishLinks,
     });
+    for (const item of wish.elements) {
+      updatePositionControl(item, "x");
+      updatePositionControl(item, "y");
+    }
     updateWishLinks();
   }
 
@@ -601,8 +633,8 @@ function renderEditor() {
         selectField("Paper color", "tone", item.tone, item.id, [
           ["white", "White"], ["butter", "Butter"], ["sky", "Sky"], ["sage", "Sage"], ["coral", "Coral"],
         ]),
-        rangeField("Horizontal position", "x", item.x, item.id, 5, 85),
-        rangeField("Vertical position", "y", item.y, item.id, 10, 78),
+        rangeField("Horizontal position", "x", item.x, item.id, 2, 95),
+        rangeField("Vertical position", "y", item.y, item.id, 2, 95),
         rangeField("Tilt", "rot", item.rot, item.id, -12, 12),
       );
       card.append(controls);
