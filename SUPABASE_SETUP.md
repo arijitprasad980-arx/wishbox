@@ -2,6 +2,8 @@
 
 The secret box encrypts recipient messages in the browser, then stores the ciphertext in Supabase so the wish creator can read them from another device. The recipient wish link allows submitting messages; a separate private inbox link is required to decrypt and read them.
 
+After the recipient taps the cake, the candle and confetti animation plays and the wish appears. Closing the wish opens a simple secret-message form. A successful send stores the encrypted message and closes the form.
+
 ## Configure Supabase
 
 1. Create a Supabase project.
@@ -15,6 +17,8 @@ The database denies direct table access. Its RPC functions allow anyone with a w
 ## Share safely
 
 In the editor, choose **Copy share link** for the recipient and **Copy private inbox link** for yourself. Keep the private inbox link secret: anyone who has it can read that wish's messages. The private key is also kept in this browser's local storage, but save the private inbox link somewhere safe in case you switch devices or clear browser data.
+
+Each wish has its own secret-message box and matching private inbox link. Sending the same wish link to multiple people sends all their replies to that wish's inbox; creating a separate wish creates a separate inbox.
 
 Messages are encrypted before leaving the recipient's browser; Supabase stores only encrypted message contents. Messages remain stored until the Supabase project or its message rows are removed. Anyone with the recipient wish link can submit a message; the page cannot verify a person's identity from a public link alone.
 

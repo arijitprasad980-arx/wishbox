@@ -177,7 +177,7 @@ function image(source, alt, className) {
   return node;
 }
 
-function createModal(title, bodyNodes) {
+function createModal(title, bodyNodes, onClose, closeLabel = "Close") {
   const overlay = element("div", "modal-backdrop");
   overlay.setAttribute("role", "presentation");
   const dialog = element("section", "wish-modal");
@@ -185,19 +185,27 @@ function createModal(title, bodyNodes) {
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", title);
   const badge = element("span", "modal-badge", title);
-  const close = element("button", "modal-close", "Close");
+  const close = element("button", "modal-close", closeLabel);
   close.type = "button";
-  close.addEventListener("click", () => overlay.remove());
+  let closed = false;
+  const dismiss = () => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    onClose?.();
+  };
+  close.addEventListener("click", dismiss);
   dialog.append(badge, ...bodyNodes, close);
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) overlay.remove();
+    if (event.target === overlay) dismiss();
   });
   overlay.append(dialog);
   document.body.append(overlay);
   close.focus();
+  return dismiss;
 }
 
-function showWish(wish) {
+function showWish(wish, onClose) {
   const nodes = [];
   if (wish.wishTo) nodes.push(element("p", "wish-to", wish.wishTo));
   if (wish.wishHeadline) nodes.push(element("h2", "wish-message", wish.wishHeadline));
@@ -205,23 +213,12 @@ function showWish(wish) {
   if (!nodes.length) {
     nodes.push(element("p", "wish-note", "Wishing you a day filled with joy, laughter, and all your favorite things."));
   }
-  createModal("A wish for you", nodes);
+  createModal("A wish for you", nodes, onClose, onClose ? "Continue" : "Close");
 }
 
-function secretMessageBox(boxId, publicKey, preview = false) {
+function secretMessageBox(boxId, publicKey, preview = false, onSent) {
   const box = element("section", "secret-message-box");
   box.setAttribute("aria-label", "Secret message box");
-  box.append(
-    element("p", "secret-box-eyebrow", "A note, just between us"),
-    element("h2", "secret-box-title", "Leave a secret message"),
-    element(
-      "p",
-      "secret-box-description",
-      preview
-        ? "Your friend can leave a private message here. Read replies using your separate private inbox link."
-        : "Only the wish creator can read messages sent here.",
-    ),
-  );
 
   const form = element("form", "secret-message-form");
   const input = element("textarea", "secret-message-input");
@@ -245,6 +242,7 @@ function secretMessageBox(boxId, publicKey, preview = false) {
     return box;
   }
 
+  let messageSent = false;
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const message = input.value.trim();
@@ -260,14 +258,23 @@ function secretMessageBox(boxId, publicKey, preview = false) {
       const encryptedMessage = await encryptSecretMessage(publicKey, message);
       await submitSecretMessage(boxId, encryptedMessage);
       form.reset();
-      status.textContent = "Your message was sent privately to the wish creator.";
+      status.textContent = "Sent privately.";
+      messageSent = true;
+      window.setTimeout(() => onSent?.(), 900);
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Your message could not be sent.";
     } finally {
-      submit.disabled = false;
+      if (!messageSent) submit.disabled = false;
     }
   });
   return box;
+}
+
+function showSecretMessage(wish) {
+  let dismiss;
+  const box = secretMessageBox(wish.secretBoxId, wish.secretBoxPublicKey, false, () => dismiss?.());
+  dismiss = createModal("Write a secret message", [box]);
+  box.querySelector("textarea")?.focus();
 }
 
 function renderSecretInbox(container, boxId, ownerToken, privateKey) {
@@ -449,7 +456,8 @@ function renderWish(container, wish, options = {}) {
       }, 320);
     }
     window.setTimeout(() => {
-      showWish(wish);
+      const hasSecretBox = !options.preview && wish.secretBoxId && wish.secretBoxPublicKey;
+      showWish(wish, hasSecretBox ? () => showSecretMessage(wish) : undefined);
     }, 1000);
     confettiAnimation.then(() => {
       window.setTimeout(() => {
@@ -561,9 +569,7 @@ function renderWish(container, wish, options = {}) {
   remixLink.href = editorUrl(wish);
   actions.append(rainButton, copyButton, remixLink);
 
-  const privateMessageBox = (wish.secretBoxId && wish.secretBoxPublicKey) || options.preview
-    ? secretMessageBox(wish.secretBoxId, wish.secretBoxPublicKey, options.preview)
-    : null;
+  const privateMessageBox = options.preview ? secretMessageBox("", "", true) : null;
   scene.append(glow, header, hero, stage, ...memoryCards);
   if (privateMessageBox) scene.append(privateMessageBox);
   scene.append(actions);

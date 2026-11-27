@@ -742,28 +742,6 @@ select:focus-visible {
   box-shadow: var(--shadow);
 }
 
-.secret-box-eyebrow {
-  margin: 0;
-  color: var(--coral);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-}
-
-.secret-box-title {
-  margin: 7px 0 0;
-  font-family: Fraunces, Georgia, serif;
-  font-size: clamp(20px, 3vw, 27px);
-}
-
-.secret-box-description {
-  margin: 7px 0 15px;
-  color: #786b62;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
 .secret-message-form {
   display: grid;
   gap: 10px;
@@ -890,6 +868,25 @@ select:focus-visible {
   box-shadow: 0 24px 80px rgba(49, 34, 28, .2);
   text-align: center;
   animation: modal-enter .22s ease-out both;
+}
+
+.wish-modal .secret-message-box {
+  z-index: auto;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wish-modal .secret-message-input {
+  min-height: 130px;
+}
+
+.wish-modal .secret-message-form .button {
+  justify-self: center;
 }
 
 .modal-backdrop {
