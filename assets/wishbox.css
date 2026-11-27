@@ -729,6 +729,141 @@ select:focus-visible {
   font-size: 11px;
 }
 
+.secret-message-box {
+  position: relative;
+  z-index: 4;
+  width: min(100%, 620px);
+  margin: 23px auto 10px;
+  padding: 22px;
+  border: 1px solid rgba(71, 51, 40, .12);
+  border-radius: 21px;
+  background: #fffdf9;
+  color: #473328;
+  box-shadow: var(--shadow);
+}
+
+.secret-box-eyebrow {
+  margin: 0;
+  color: var(--coral);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.secret-box-title {
+  margin: 7px 0 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(20px, 3vw, 27px);
+}
+
+.secret-box-description {
+  margin: 7px 0 15px;
+  color: #786b62;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.secret-message-form {
+  display: grid;
+  gap: 10px;
+}
+
+.secret-message-input {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid rgba(71, 51, 40, .16);
+  border-radius: 13px;
+  background: #fff;
+  color: #473328;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.secret-message-form .button {
+  justify-self: start;
+}
+
+.secret-message-form .button:disabled,
+.editor-actions .button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+  transform: none;
+}
+
+.secret-message-status {
+  min-height: 17px;
+  margin: 9px 0 0;
+  color: #786b62;
+  font-size: 12px;
+}
+
+.secret-inbox-page {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  padding: 22px clamp(18px, 5vw, 64px);
+  background: var(--paper);
+}
+
+.secret-inbox-panel {
+  width: min(100%, 700px);
+  margin: clamp(35px, 8vh, 85px) auto;
+  padding: clamp(22px, 5vw, 42px);
+  border: 1px solid rgba(71, 51, 40, .1);
+  border-radius: 25px;
+  background: #fffdf9;
+  box-shadow: var(--shadow);
+}
+
+.secret-inbox-title {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(28px, 5vw, 40px);
+}
+
+.secret-inbox-description {
+  margin: 9px 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.secret-inbox-status {
+  color: var(--coral);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.secret-inbox-messages {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.secret-inbox-message {
+  padding: 16px;
+  border: 1px solid rgba(71, 51, 40, .1);
+  border-radius: 15px;
+  background: #fff8f1;
+}
+
+.secret-inbox-timestamp {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.secret-inbox-message-text {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .theme-dark {
   --ink: #fff5e7;
   --muted: #e1d3c7;

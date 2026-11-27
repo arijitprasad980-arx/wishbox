@@ -1,3 +1,17 @@
+import {
+  createOwnerToken,
+  createSecretBox,
+  createSecretBoxId,
+  createSecretBoxKeys,
+  decryptSecretMessages,
+  encryptSecretMessage,
+  getSecretMessages,
+  getStoredOwnerCredentials,
+  isSecretBoxId,
+  storeOwnerCredentials,
+  submitSecretMessage,
+} from "./secret-box.js?v=secret-box-1";
+
 const DEFAULT_WISH = {
   eyebrow: "",
   name: "",
@@ -31,6 +45,11 @@ function makeId() {
 
 function normalizeWish(value) {
   const wish = { ...DEFAULT_WISH, ...(value && typeof value === "object" ? value : {}) };
+  wish.secretBoxId = isSecretBoxId(wish.secretBoxId) ? wish.secretBoxId : "";
+  wish.secretBoxPublicKey =
+    typeof wish.secretBoxPublicKey === "string" && /^[A-Za-z0-9_-]{200,600}$/.test(wish.secretBoxPublicKey)
+      ? wish.secretBoxPublicKey
+      : "";
   for (const key of [
     "eyebrow",
     "name",
@@ -122,6 +141,13 @@ function editorUrl(wish) {
   return url.href;
 }
 
+function secretInboxUrl(boxId, ownerToken, privateKey) {
+  const url = siteBase();
+  url.searchParams.set("inbox", boxId);
+  url.hash = new URLSearchParams({ owner: ownerToken, key: privateKey }).toString();
+  return url.href;
+}
+
 function safeImageSource(source) {
   if (typeof source !== "string" || !source.trim()) return "";
   const value = source.trim();
@@ -180,6 +206,117 @@ function showWish(wish) {
     nodes.push(element("p", "wish-note", "Wishing you a day filled with joy, laughter, and all your favorite things."));
   }
   createModal("A wish for you", nodes);
+}
+
+function secretMessageBox(boxId, publicKey, preview = false) {
+  const box = element("section", "secret-message-box");
+  box.setAttribute("aria-label", "Secret message box");
+  box.append(
+    element("p", "secret-box-eyebrow", "A note, just between us"),
+    element("h2", "secret-box-title", "Leave a secret message"),
+    element(
+      "p",
+      "secret-box-description",
+      preview
+        ? "Your friend can leave a private message here. Read replies using your separate private inbox link."
+        : "Only the wish creator can read messages sent here.",
+    ),
+  );
+
+  const form = element("form", "secret-message-form");
+  const input = element("textarea", "secret-message-input");
+  input.name = "message";
+  input.maxLength = 1000;
+  input.required = true;
+  input.rows = 4;
+  input.placeholder = "Write your secret message…";
+  input.setAttribute("aria-label", "Your secret message");
+  const submit = element("button", "button button-primary", "Send privately");
+  submit.type = "submit";
+  const status = element("p", "secret-message-status");
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  form.append(input, submit);
+  box.append(form, status);
+
+  if (preview) {
+    input.disabled = true;
+    submit.disabled = true;
+    return box;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = input.value.trim();
+    if (!message) {
+      status.textContent = "Write a message before sending.";
+      input.focus();
+      return;
+    }
+
+    submit.disabled = true;
+    status.textContent = "Sending your message…";
+    try {
+      const encryptedMessage = await encryptSecretMessage(publicKey, message);
+      await submitSecretMessage(boxId, encryptedMessage);
+      form.reset();
+      status.textContent = "Your message was sent privately to the wish creator.";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "Your message could not be sent.";
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  return box;
+}
+
+function renderSecretInbox(container, boxId, ownerToken, privateKey) {
+  const page = element("main", "secret-inbox-page");
+  const homeLink = element("a", "brand", "Wishbox");
+  homeLink.href = siteBase().href;
+  const panel = element("section", "secret-inbox-panel");
+  const title = element("h1", "secret-inbox-title", "Secret messages");
+  const description = element(
+    "p",
+    "secret-inbox-description",
+    "These notes were left for you by someone who received your wish.",
+  );
+  const status = element("p", "secret-inbox-status", "Opening your private inbox…");
+  status.setAttribute("role", "status");
+  const messages = element("div", "secret-inbox-messages");
+  panel.append(title, description, status, messages);
+  page.append(homeLink, panel);
+  container.replaceChildren(page);
+
+  if (!isSecretBoxId(boxId)) {
+    status.textContent = "This private inbox link is invalid.";
+    return;
+  }
+  if (!/^[A-Za-z0-9_-]{43}$/.test(ownerToken) || !/^[A-Za-z0-9_-]{1000,2000}$/.test(privateKey)) {
+    status.textContent = "The private inbox link is missing its access key. Use the private link saved by the wish creator.";
+    return;
+  }
+
+  getSecretMessages(boxId, ownerToken)
+    .then((entries) => decryptSecretMessages(entries, privateKey))
+    .then((entries) => {
+      status.textContent = entries.length ? `${entries.length} secret ${entries.length === 1 ? "message" : "messages"}` : "No messages yet. Check back later.";
+      for (const entry of entries) {
+        const card = element("article", "secret-inbox-message");
+        const date = new Date(entry.created_at);
+        const timestamp = element(
+          "time",
+          "secret-inbox-timestamp",
+          Number.isNaN(date.getTime()) ? "Received" : date.toLocaleString(),
+        );
+        if (!Number.isNaN(date.getTime())) timestamp.dateTime = date.toISOString();
+        card.append(timestamp, element("p", "secret-inbox-message-text", entry.message));
+        messages.append(card);
+      }
+    })
+    .catch((error) => {
+      status.textContent = error instanceof Error ? error.message : "The private inbox could not be opened.";
+    });
 }
 
 function showElement(item) {
@@ -424,7 +561,12 @@ function renderWish(container, wish, options = {}) {
   remixLink.href = editorUrl(wish);
   actions.append(rainButton, copyButton, remixLink);
 
-  scene.append(glow, header, hero, stage, ...memoryCards, actions);
+  const privateMessageBox = (wish.secretBoxId && wish.secretBoxPublicKey) || options.preview
+    ? secretMessageBox(wish.secretBoxId, wish.secretBoxPublicKey, options.preview)
+    : null;
+  scene.append(glow, header, hero, stage, ...memoryCards);
+  if (privateMessageBox) scene.append(privateMessageBox);
+  scene.append(actions);
   container.replaceChildren(scene);
   for (const [index, item] of wish.elements.entries()) {
     const card = memoryCards[index];
@@ -437,6 +579,17 @@ function renderWish(container, wish, options = {}) {
 }
 
 function renderView(error = "") {
+  const query = new URLSearchParams(location.search);
+  if (query.has("inbox")) {
+    const credentials = new URLSearchParams(location.hash.slice(1));
+    renderSecretInbox(
+      app,
+      query.get("inbox"),
+      credentials.get("owner") || "",
+      credentials.get("key") || "",
+    );
+    return;
+  }
   const { wish, error: decodeError } = decodeWish();
   renderWish(app, wish);
   if (error || decodeError) {
@@ -477,7 +630,7 @@ function renderEditor() {
           <div class="panel-heading">
             <p class="eyebrow">Make it yours</p>
             <h1>Build a birthday wish</h1>
-            <p>Every little detail travels with your share link.</p>
+            <p>Your wish settings travel with your share link.</p>
           </div>
           ${decoded.error ? '<p class="form-error" role="alert"></p>' : ""}
           <section class="form-section">
@@ -524,10 +677,11 @@ function renderEditor() {
           </section>
           <div class="editor-actions">
             <button class="button button-primary action-wide" type="button" data-copy>Copy share link</button>
+            <button class="button button-secondary action-wide" type="button" data-copy-inbox disabled>Copy private inbox link</button>
             <button class="button button-secondary action-wide" type="button" data-clear>Clear and start over</button>
             <p class="copy-status" data-status role="status" aria-live="polite"></p>
           </div>
-          <p class="editor-footnote">Anyone with your link can open the wish and remix their own version.</p>
+          <p class="editor-footnote">Share the wish link with your friend. Keep the separate private inbox link to yourself so you can read their secret messages.</p>
         </aside>
         <section class="preview-column" aria-label="Live preview">
           <div class="preview-heading"><div><p class="eyebrow">Live preview</p><h2>Your page, as they will see it</h2><p class="drag-help">Drag photos, names, and notes anywhere on the page.</p></div><a class="text-link" data-view-link href="${siteBase().href}">Open page ↗</a></div>
@@ -544,6 +698,48 @@ function renderEditor() {
   const rainOptionsContainer = app.querySelector("[data-rain-options]");
   const preview = app.querySelector("[data-preview]");
   const status = app.querySelector("[data-status]");
+  const inboxCopyButton = app.querySelector("[data-copy-inbox]");
+  let privateInboxHref = "";
+
+  function restorePrivateInboxLink() {
+    if (!wish.secretBoxId || !wish.secretBoxPublicKey) return;
+    try {
+      const credentials = getStoredOwnerCredentials(wish.secretBoxId);
+      if (!credentials || !/^[A-Za-z0-9_-]{1000,2000}$/.test(credentials.privateKey)) return;
+      privateInboxHref = secretInboxUrl(wish.secretBoxId, credentials.ownerToken, credentials.privateKey);
+      inboxCopyButton.disabled = false;
+    } catch (error) {
+      status.textContent = error instanceof Error
+        ? `Could not read the saved private inbox key: ${error.message}`
+        : "Could not read the saved private inbox key. Use the private inbox link you saved.";
+    }
+  }
+
+  async function ensureOwnedSecretBox() {
+    if (wish.secretBoxId && wish.secretBoxPublicKey) {
+      const credentials = getStoredOwnerCredentials(wish.secretBoxId);
+      if (credentials && /^[A-Za-z0-9_-]{1000,2000}$/.test(credentials.privateKey)) {
+        return { boxId: wish.secretBoxId, ...credentials, storageError: "" };
+      }
+    }
+
+    const boxId = createSecretBoxId();
+    const ownerToken = createOwnerToken();
+    const keys = await createSecretBoxKeys();
+    await createSecretBox(boxId, ownerToken);
+    wish.secretBoxId = boxId;
+    wish.secretBoxPublicKey = keys.publicKey;
+
+    let storageError = "";
+    try {
+      storeOwnerCredentials(boxId, { ownerToken, privateKey: keys.privateKey });
+    } catch (error) {
+      storageError = error instanceof Error
+        ? `The key could not be saved in this browser: ${error.message}`
+        : "The key could not be saved in this browser.";
+    }
+    return { boxId, ownerToken, privateKey: keys.privateKey, storageError };
+  }
 
   function renderConditionalOptions() {
     const style = wish.backgroundStyle;
@@ -754,17 +950,58 @@ function renderEditor() {
     }
   });
 
-  app.querySelector("[data-copy]").addEventListener("click", async (event) => {
+  const shareCopyButton = app.querySelector("[data-copy]");
+  shareCopyButton.addEventListener("click", async () => {
     try {
-      await copyText(wishUrl(wish));
-      status.textContent = "Share link copied. Send it to your friend!";
-    } catch {
-      status.textContent = "Could not copy automatically. Use the Open page link, then copy its address.";
+      const { boxId, ownerToken, privateKey, storageError } = await ensureOwnedSecretBox();
+      privateInboxHref = secretInboxUrl(boxId, ownerToken, privateKey);
+      inboxCopyButton.disabled = false;
+      sync();
+      try {
+        await copyText(wishUrl(wish), shareCopyButton);
+      } catch (error) {
+        status.textContent = error instanceof Error
+          ? `Your wish link is ready, but it could not be copied: ${error.message}`
+          : "Your wish link is ready, but it could not be copied.";
+        return;
+      }
+      status.textContent = storageError
+        ? `Share link copied. Copy the private inbox link now and save it somewhere safe. ${storageError}`
+        : "Share link copied. Copy your private inbox link separately and keep it secret.";
+    } catch (error) {
+      wish.secretBoxId = "";
+      wish.secretBoxPublicKey = "";
+      privateInboxHref = "";
+      inboxCopyButton.disabled = true;
+      sync();
+      try {
+        await copyText(wishUrl(wish), shareCopyButton);
+        const reason = error instanceof Error ? error.message : "Could not create the secret message box.";
+        status.textContent = `Wish link copied, but its secret box is unavailable: ${reason}`;
+      } catch (copyError) {
+        status.textContent = copyError instanceof Error
+          ? `Could not create the secret box or copy the wish link: ${copyError.message}`
+          : "Could not create the secret box or copy the wish link.";
+      }
     }
   });
 
+  inboxCopyButton.addEventListener("click", async () => {
+    try {
+      if (!privateInboxHref) throw new Error("Create the wish link first to set up its private inbox.");
+      await copyText(privateInboxHref, inboxCopyButton);
+      status.textContent = "Private inbox link copied. Keep it to yourself; anyone with it can read the replies.";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "Could not copy the private inbox link.";
+    }
+  });
+
+  restorePrivateInboxLink();
+
   app.querySelector("[data-clear]").addEventListener("click", () => {
     wish = normalizeWish(DEFAULT_WISH);
+    privateInboxHref = "";
+    inboxCopyButton.disabled = true;
     history.replaceState(null, "", location.pathname);
     for (const field of fields) field.value = wish[field.dataset.field] ?? "";
     renderConditionalOptions();
