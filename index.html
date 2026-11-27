@@ -43,7 +43,7 @@
       const editorLink = template.body.querySelector('a[href^="/edit"]');
       if (editorLink) {
         const { search } = new URL(editorLink.getAttribute("href"), location.origin);
-        editorLink.setAttribute("href", `./edit${search}`);
+        editorLink.setAttribute("href", `./edit.html${search}`);
       }
 
       document.body.replaceChildren(

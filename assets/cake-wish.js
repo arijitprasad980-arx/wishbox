@@ -170,9 +170,9 @@ function applyWishEdits() {
     }
   }
 
-  const editorLink = page?.querySelector('a[href*="edit?w="]');
+  const editorLink = page?.querySelector('a[href*="/edit"]');
   if (editorLink && new URLSearchParams(location.search).has("w")) {
-    const editorUrl = new URL("./edit", location.href);
+    const editorUrl = new URL("./edit.html", location.href);
     editorUrl.searchParams.set("w", encodeWish(wish));
     editorLink.href = `${editorUrl.pathname}${editorUrl.search}`;
   }
