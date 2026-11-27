@@ -222,7 +222,7 @@ function applyWishEdits() {
 let cakeLit = true;
 let revealTimer;
 const installedWishButtons = new WeakSet();
-const isEditor = /\/edit\/?$/.test(location.pathname);
+const isEditor = /\/edit(?:\.html)?\/?$/.test(location.pathname);
 
 function handleCakeClick(wishButton) {
   cakeLit = !cakeLit;
