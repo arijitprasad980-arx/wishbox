@@ -209,7 +209,12 @@ function makeConfettiRain() {
     layer.append(piece);
   }
   document.body.append(layer);
-  window.setTimeout(() => layer.remove(), 2400);
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      layer.remove();
+      resolve();
+    }, 2400);
+  });
 }
 
 function makeItRain(wish) {
@@ -291,12 +296,12 @@ function renderWish(container, wish, options = {}) {
   if (cakeImage) cake.append(cakeImage);
   cake.append(element("span", "cake-caption", wish.buttonLabel || "Open your wish"));
   let candleBlownOut = false;
-  let revealPending = false;
+  let cyclePending = false;
   cake.addEventListener("click", () => {
-    if (revealPending) return;
-    revealPending = true;
+    if (cyclePending) return;
+    cyclePending = true;
     cake.disabled = true;
-    makeConfettiRain();
+    const confettiAnimation = makeConfettiRain();
     if (!candleBlownOut) {
       cake.classList.add("candle-blowing");
       window.setTimeout(() => {
@@ -308,9 +313,16 @@ function renderWish(container, wish, options = {}) {
     }
     window.setTimeout(() => {
       showWish(wish);
-      revealPending = false;
-      cake.disabled = false;
     }, 1000);
+    confettiAnimation.then(() => {
+      window.setTimeout(() => {
+        if (cakeImage) cakeImage.src = new URL("./birthday-cake-lit.svg", import.meta.url).href;
+        cake.classList.remove("candle-blowing", "candle-blown");
+        candleBlownOut = false;
+        cyclePending = false;
+        cake.disabled = false;
+      }, 3000);
+    });
   });
   stage.append(cake);
 
