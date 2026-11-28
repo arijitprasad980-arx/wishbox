@@ -14,14 +14,93 @@ create table if not exists public.wish_secret_messages (
   constraint wish_secret_messages_length check (pg_catalog.length(message) between 1 and 8192)
 );
 
+create table if not exists public.wish_short_links (
+  id text primary key,
+  owner_token_hash text not null,
+  wish jsonb not null,
+  updated_at timestamptz not null default pg_catalog.now(),
+  constraint wish_short_links_id_format check (id ~ '^[A-Za-z0-9]{10}$'),
+  constraint wish_short_links_wish_object check (pg_catalog.jsonb_typeof(wish) = 'object')
+);
+
 create index if not exists wish_secret_messages_box_created_idx
   on public.wish_secret_messages (box_id, created_at desc);
 
 alter table public.wish_secret_boxes enable row level security;
 alter table public.wish_secret_messages enable row level security;
+alter table public.wish_short_links enable row level security;
 
 revoke all on public.wish_secret_boxes from public, anon, authenticated;
 revoke all on public.wish_secret_messages from public, anon, authenticated;
+revoke all on public.wish_short_links from public, anon, authenticated;
+
+create or replace function public.save_wish_short_link(p_id text, p_owner_token text, p_wish jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected_rows integer;
+begin
+  if p_id is null or p_id !~ '^[A-Za-z0-9]{10}$' then
+    raise exception using errcode = '22023', message = 'The short wish link ID is invalid.';
+  end if;
+
+  if p_owner_token is null or pg_catalog.length(p_owner_token) < 40 then
+    raise exception using errcode = '22023', message = 'The short-link key is invalid.';
+  end if;
+
+  if p_wish is null
+    or pg_catalog.jsonb_typeof(p_wish) <> 'object'
+    or pg_catalog.octet_length(p_wish::text) > 2097152
+  then
+    raise exception using errcode = '22023', message = 'The wish is invalid or too large to save as a short link.';
+  end if;
+
+  insert into public.wish_short_links (id, owner_token_hash, wish)
+  values (
+    p_id,
+    pg_catalog.encode(extensions.digest(p_owner_token, 'sha256'), 'hex'),
+    p_wish
+  )
+  on conflict (id) do update
+  set wish = excluded.wish, updated_at = pg_catalog.now()
+  where public.wish_short_links.owner_token_hash =
+    pg_catalog.encode(extensions.digest(p_owner_token, 'sha256'), 'hex');
+
+  get diagnostics affected_rows = row_count;
+  if affected_rows = 0 then
+    raise exception using errcode = '23505', message = 'This short wish link ID is already in use.';
+  end if;
+end;
+$$;
+
+create or replace function public.get_wish_short_link(p_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  saved_wish jsonb;
+begin
+  if p_id is null or p_id !~ '^[A-Za-z0-9]{10}$' then
+    raise exception using errcode = '22023', message = 'This short wish link is invalid.';
+  end if;
+
+  select wish
+  into saved_wish
+  from public.wish_short_links
+  where id = p_id;
+
+  if saved_wish is null then
+    raise exception using errcode = '22023', message = 'This short wish link is unavailable.';
+  end if;
+
+  return saved_wish;
+end;
+$$;
 
 create or replace function public.create_wish_secret_box(p_box_id uuid, p_owner_token text)
 returns void
@@ -110,7 +189,11 @@ $$;
 revoke all on function public.create_wish_secret_box(uuid, text) from public;
 revoke all on function public.submit_wish_secret_message(uuid, text) from public;
 revoke all on function public.read_wish_secret_messages(uuid, text) from public;
+revoke all on function public.save_wish_short_link(text, text, jsonb) from public;
+revoke all on function public.get_wish_short_link(text) from public;
 
 grant execute on function public.create_wish_secret_box(uuid, text) to anon;
 grant execute on function public.submit_wish_secret_message(uuid, text) to anon;
 grant execute on function public.read_wish_secret_messages(uuid, text) to anon;
+grant execute on function public.save_wish_short_link(text, text, jsonb) to anon;
+grant execute on function public.get_wish_short_link(text) to anon;

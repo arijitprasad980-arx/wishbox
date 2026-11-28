@@ -2,8 +2,11 @@ import { supabasePublicKey, supabaseUrl } from "./wishbox-config.js?v=secret-box
 
 const BOX_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OWNER_TOKEN_PREFIX = "wishbox-owner:";
+const SHORT_LINK_CREDENTIALS_PREFIX = "wishbox-short-link:";
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_ENCRYPTED_MESSAGE_LENGTH = 8192;
+const SHORT_LINK_ID_LENGTH = 10;
+const SHORT_LINK_ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 function bytesToBase64Url(bytes) {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -92,6 +95,71 @@ export function createOwnerToken() {
   }
   const bytes = cryptoApi.getRandomValues(new Uint8Array(32));
   return bytesToBase64Url(bytes);
+}
+
+export function createWishShortLinkId() {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error("This browser cannot create a secure short link. Please use a modern browser over HTTPS.");
+  }
+  let id = "";
+  const bytes = new Uint8Array(32);
+  while (id.length < SHORT_LINK_ID_LENGTH) {
+    cryptoApi.getRandomValues(bytes);
+    for (const byte of bytes) {
+      const index = byte & 63;
+      if (index < SHORT_LINK_ID_ALPHABET.length) id += SHORT_LINK_ID_ALPHABET[index];
+      if (id.length === SHORT_LINK_ID_LENGTH) break;
+    }
+  }
+  return id;
+}
+
+export function getWishShortLinkCredentials(id) {
+  if (typeof id !== "string" || !/^[A-Za-z0-9]{10}$/.test(id)) return null;
+  const serialized = localStorage.getItem(`${SHORT_LINK_CREDENTIALS_PREFIX}${id}`);
+  if (!serialized) return null;
+  let credentials;
+  try {
+    credentials = JSON.parse(serialized);
+  } catch {
+    throw new Error("The saved short-link key is damaged. Create a new short link.");
+  }
+  if (typeof credentials?.ownerToken !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(credentials.ownerToken)) {
+    throw new Error("The saved short-link key is incomplete. Create a new short link.");
+  }
+  return credentials;
+}
+
+export function storeWishShortLinkCredentials(id, ownerToken) {
+  if (
+    typeof id !== "string" ||
+    !/^[A-Za-z0-9]{10}$/.test(id) ||
+    typeof ownerToken !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(ownerToken)
+  ) {
+    throw new Error("Could not save the short-link key.");
+  }
+  localStorage.setItem(`${SHORT_LINK_CREDENTIALS_PREFIX}${id}`, JSON.stringify({ ownerToken }));
+}
+
+export async function saveWishShortLink(id, ownerToken, wish) {
+  await callRpc("save_wish_short_link", {
+    p_id: id,
+    p_owner_token: ownerToken,
+    p_wish: wish,
+  });
+}
+
+export async function getWishByShortLinkId(id) {
+  if (typeof id !== "string" || !/^[A-Za-z0-9]{10}$/.test(id)) {
+    throw new Error("This short wish link is invalid.");
+  }
+  const wish = await callRpc("get_wish_short_link", { p_id: id });
+  if (!wish || typeof wish !== "object" || Array.isArray(wish)) {
+    throw new Error("This short wish link is unavailable.");
+  }
+  return wish;
 }
 
 export async function createSecretBoxKeys() {

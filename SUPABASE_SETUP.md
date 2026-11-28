@@ -7,7 +7,7 @@ After the recipient taps the cake, the candle and confetti animation plays and t
 ## Configure Supabase
 
 1. Create a Supabase project.
-2. Open the SQL Editor and run [`supabase/setup.sql`](./supabase/setup.sql).
+2. Open the SQL Editor and run [`supabase/setup.sql`](./supabase/setup.sql). If the secret-message tables are already set up, run the updated script again to add short-link storage and its RPC functions.
 3. Copy the project URL and the **anon/public or publishable** key from the project API settings into [`assets/wishbox-config.js`](./assets/wishbox-config.js).
 
 Only the anon/public or publishable key belongs in the static site. Never put a Supabase service-role or secret key in the repository or browser code.
@@ -16,9 +16,9 @@ The database denies direct table access. Its RPC functions allow anyone with a w
 
 ## Share safely
 
-In the editor, choose **Copy share link** for the recipient and **Copy private inbox link** for yourself. Keep the private inbox link secret: anyone who has it can read that wish's messages. The private key is also kept in this browser's local storage, but save the private inbox link somewhere safe in case you switch devices or clear browser data.
+In the editor, choose **Copy short link** for the recipient. Each wish gets its own short link; its content is stored in Supabase so photos and other elements do not make the URL huge. **Copy full link** remains available as a self-contained alternative. Short links need the Supabase setup above. Choose **Copy private inbox link** for yourself and keep it secret: anyone who has it can read that wish's messages. The private key is also kept in this browser's local storage, but save the private inbox link somewhere safe in case you switch devices or clear browser data.
 
-Each wish has its own secret-message box and matching private inbox link. Sending the same wish link to multiple people sends all their replies to that wish's inbox; creating a separate wish creates a separate inbox.
+Each wish has its own short link, secret-message box, and matching private inbox link. Editing a wish from the browser where its short link was created updates that link. Sending the same wish link to multiple people sends all their replies to that wish's inbox; creating a separate wish creates a separate inbox and short link.
 
 Messages are encrypted before leaving the recipient's browser; Supabase stores only encrypted message contents. Messages remain stored until the Supabase project or its message rows are removed. Anyone with the recipient wish link can submit a message; the page cannot verify a person's identity from a public link alone.
 

@@ -3,14 +3,19 @@ import {
   createSecretBox,
   createSecretBoxId,
   createSecretBoxKeys,
+  createWishShortLinkId,
   decryptSecretMessages,
   encryptSecretMessage,
+  getWishByShortLinkId,
+  getWishShortLinkCredentials,
   getSecretMessages,
   getStoredOwnerCredentials,
   isSecretBoxId,
+  saveWishShortLink,
   storeOwnerCredentials,
+  storeWishShortLinkCredentials,
   submitSecretMessage,
-} from "./secret-box.js?v=secret-box-1";
+} from "./secret-box.js?v=short-wish-links-1";
 
 const DEFAULT_WISH = {
   eyebrow: "",
@@ -45,6 +50,10 @@ function makeId() {
 
 function normalizeWish(value) {
   const wish = { ...DEFAULT_WISH, ...(value && typeof value === "object" ? value : {}) };
+  wish.shortLinkId =
+    typeof wish.shortLinkId === "string" && /^[A-Za-z0-9]{10}$/.test(wish.shortLinkId)
+      ? wish.shortLinkId
+      : "";
   wish.secretBoxId = isSecretBoxId(wish.secretBoxId) ? wish.secretBoxId : "";
   wish.secretBoxPublicKey =
     typeof wish.secretBoxPublicKey === "string" && /^[A-Za-z0-9_-]{200,600}$/.test(wish.secretBoxPublicKey)
@@ -135,9 +144,36 @@ function wishUrl(wish) {
   return url.href;
 }
 
+function shortWishUrl(id) {
+  const url = siteBase();
+  url.searchParams.set("s", id);
+  return url.href;
+}
+
+async function ensureShortWishLink(wish) {
+  let id = wish.shortLinkId;
+  let credentials = id ? getWishShortLinkCredentials(id) : null;
+  if (!credentials) {
+    id = createWishShortLinkId();
+    credentials = { ownerToken: createOwnerToken() };
+  }
+  const savedWish = { ...wish, shortLinkId: id };
+  await saveWishShortLink(id, credentials.ownerToken, savedWish);
+  wish.shortLinkId = id;
+  let storageError = "";
+  try {
+    storeWishShortLinkCredentials(id, credentials.ownerToken);
+  } catch (error) {
+    storageError = error instanceof Error
+      ? `The short link could not be saved for future edits: ${error.message}`
+      : "The short link could not be saved for future edits.";
+  }
+  return { href: shortWishUrl(id), storageError };
+}
+
 function editorUrl(wish) {
   const url = new URL("edit.html", siteBase());
-  if (wish) url.hash = `w=${encodeWish(wish)}`;
+  if (wish) url.hash = `w=${encodeWish({ ...wish, shortLinkId: "" })}`;
   return url.href;
 }
 
@@ -556,13 +592,19 @@ function renderWish(container, wish, options = {}) {
   const rainButton = element("button", "button button-secondary", "✦ Make it rain");
   rainButton.type = "button";
   rainButton.addEventListener("click", () => makeItRain(wish));
-  const copyButton = element("button", "button button-secondary", "Copy link");
+  const copyButton = element("button", "button button-secondary", "Copy short link");
   copyButton.type = "button";
   copyButton.addEventListener("click", async () => {
     try {
-      await copyText(wishUrl(wish), copyButton);
-    } catch {
-      copyButton.textContent = "Copy failed";
+      const { href } = await ensureShortWishLink(wish);
+      await copyText(href, copyButton);
+    } catch (error) {
+      copyButton.title = error instanceof Error ? error.message : "Could not create the short link.";
+      copyButton.textContent = "Short link unavailable";
+      window.setTimeout(() => {
+        copyButton.textContent = "Copy short link";
+        copyButton.title = "";
+      }, 2500);
     }
   });
   const remixLink = element("a", "button button-primary", "Make your own");
@@ -584,7 +626,7 @@ function renderWish(container, wish, options = {}) {
   }
 }
 
-function renderView(error = "") {
+async function renderView() {
   const query = new URLSearchParams(location.search);
   if (query.has("inbox")) {
     const credentials = new URLSearchParams(location.hash.slice(1));
@@ -596,10 +638,21 @@ function renderView(error = "") {
     );
     return;
   }
-  const { wish, error: decodeError } = decodeWish();
+  let wish;
+  let decodeError = "";
+  if (query.has("s")) {
+    try {
+      wish = normalizeWish(await getWishByShortLinkId(query.get("s")));
+    } catch (error) {
+      wish = normalizeWish(DEFAULT_WISH);
+      decodeError = error instanceof Error ? error.message : "This short wish link is unavailable.";
+    }
+  } else {
+    ({ wish, error: decodeError } = decodeWish());
+  }
   renderWish(app, wish);
-  if (error || decodeError) {
-    const notice = element("p", "link-notice", error || decodeError);
+  if (decodeError) {
+    const notice = element("p", "link-notice", decodeError);
     app.append(notice);
   }
 }
@@ -682,7 +735,8 @@ function renderEditor() {
             <div class="rain-options" data-rain-options></div>
           </section>
           <div class="editor-actions">
-            <button class="button button-primary action-wide" type="button" data-copy>Copy share link</button>
+            <button class="button button-primary action-wide" type="button" data-copy>Copy short link</button>
+            <button class="button button-secondary action-wide" type="button" data-copy-full>Copy full link</button>
             <button class="button button-secondary action-wide" type="button" data-copy-inbox disabled>Copy private inbox link</button>
             <button class="button button-secondary action-wide" type="button" data-clear>Clear and start over</button>
             <p class="copy-status" data-status role="status" aria-live="polite"></p>
@@ -705,6 +759,7 @@ function renderEditor() {
   const preview = app.querySelector("[data-preview]");
   const status = app.querySelector("[data-status]");
   const inboxCopyButton = app.querySelector("[data-copy-inbox]");
+  const fullLinkCopyButton = app.querySelector("[data-copy-full]");
   let privateInboxHref = "";
 
   function restorePrivateInboxLink() {
@@ -958,37 +1013,46 @@ function renderEditor() {
 
   const shareCopyButton = app.querySelector("[data-copy]");
   shareCopyButton.addEventListener("click", async () => {
+    let secretBoxNotice = "";
+    let inboxStorageNotice = "";
     try {
       const { boxId, ownerToken, privateKey, storageError } = await ensureOwnedSecretBox();
       privateInboxHref = secretInboxUrl(boxId, ownerToken, privateKey);
+      inboxStorageNotice = storageError;
       inboxCopyButton.disabled = false;
       sync();
-      try {
-        await copyText(wishUrl(wish), shareCopyButton);
-      } catch (error) {
-        status.textContent = error instanceof Error
-          ? `Your wish link is ready, but it could not be copied: ${error.message}`
-          : "Your wish link is ready, but it could not be copied.";
-        return;
-      }
-      status.textContent = storageError
-        ? `Share link copied. Copy the private inbox link now and save it somewhere safe. ${storageError}`
-        : "Share link copied. Copy your private inbox link separately and keep it secret.";
     } catch (error) {
       wish.secretBoxId = "";
       wish.secretBoxPublicKey = "";
       privateInboxHref = "";
       inboxCopyButton.disabled = true;
       sync();
-      try {
-        await copyText(wishUrl(wish), shareCopyButton);
-        const reason = error instanceof Error ? error.message : "Could not create the secret message box.";
-        status.textContent = `Wish link copied, but its secret box is unavailable: ${reason}`;
-      } catch (copyError) {
-        status.textContent = copyError instanceof Error
-          ? `Could not create the secret box or copy the wish link: ${copyError.message}`
-          : "Could not create the secret box or copy the wish link.";
-      }
+      secretBoxNotice = error instanceof Error
+        ? `The secret inbox could not be created: ${error.message}`
+        : "The secret inbox could not be created.";
+    }
+    try {
+      const { href, storageError } = await ensureShortWishLink(wish);
+      sync();
+      await copyText(href, shareCopyButton);
+      const notices = [secretBoxNotice, inboxStorageNotice, storageError].filter(Boolean);
+      const inboxReminder = secretBoxNotice
+        ? ""
+        : " Copy your private inbox link separately and keep it secret.";
+      status.textContent = `Short link copied.${notices.length ? ` ${notices.join(" ")}` : ""}${inboxReminder}`;
+    } catch (error) {
+      status.textContent = error instanceof Error
+        ? `Could not create or copy the short wish link: ${error.message}`
+        : "Could not create or copy the short wish link.";
+    }
+  });
+
+  fullLinkCopyButton.addEventListener("click", async () => {
+    try {
+      await copyText(wishUrl(wish), fullLinkCopyButton);
+      status.textContent = "Full wish link copied.";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "Could not copy the full wish link.";
     }
   });
 
